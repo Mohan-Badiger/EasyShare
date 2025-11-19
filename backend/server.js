@@ -29,6 +29,10 @@ io.on("connection", (socket) => {
 // Routes
 app.use("/api/session", sessionRoute);
 
+app.get('/', (req, res)=>{
+    res.send("API Working");
+})
+
 
 // Start Server
 const PORT = 4000;
