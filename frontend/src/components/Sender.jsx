@@ -167,7 +167,7 @@ const Sender = () => {
   };
 
   const isSendDisabled =
-    !joinCode || !receiverConnected || selectedFiles.length === 0 || isSending;
+  !joinCode || selectedFiles.length === 0 || isSending;
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center px-4 py-8">
