@@ -3,6 +3,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 import axios from "axios";
 import socket from "../socket"; // update path if needed
 import {toast} from 'react-toastify'
+import link from '../assets/link.png'
 
 const Receiver = () => {
   const [joinCode, setJoinCode] = useState("");
@@ -261,10 +262,14 @@ const Receiver = () => {
           </div>
 
           {/* QR Scanner */}
-          <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col items-center gap-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Scan QR Code</p>
-
-            {!cameraOn && (
+          <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col items-center">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Developed By</p>
+            <p className="text-md uppercase font-semibold font-sans tracking-wide text-gray-600">Mohan Badiger</p>
+           <div className="flex gap-2 align-middle items-center">
+            <a href="https://mohanbadiger.vercel.app" target="_blank" className="text-xs uppercase text-gray-500 cursor-pointer hover:text-indigo-600">click here to visit website</a>
+            <img className="w-3 h-3" src={link} alt="" />
+            </div>
+            {/* {!cameraOn && (
               <button
                 type="button"
                 onClick={startCamera}
@@ -272,9 +277,9 @@ const Receiver = () => {
               >
                 Open Camera
               </button>
-            )}
+            )} */}
 
-            {cameraOn && (
+            {/* {cameraOn && (
               <>
                 <div className="w-56 h-56 rounded-xl overflow-hidden border border-gray-300">
                   <video
@@ -293,7 +298,7 @@ const Receiver = () => {
                   Stop Camera
                 </button>
               </>
-            )}
+            )} */}
 
             {cameraError && (
               <p className="text-[11px] text-red-500 text-center">{cameraError}</p>
