@@ -55,7 +55,7 @@ A **peer-style file transfer** web app where:
 
 | Layer      | Technology                                                          |
 | ---------- | ------------------------------------------------------------------- |
-| Frontend   | React, Tailwind CSS, Socket.IO Client, ZXing Scanner, React-QR-Code |
+| Frontend   | React, Tailwind CSS, Socket.IO Client, React-QR-Code |
 | Backend    | Node.js, Express, Socket.IO WebSocket Server                        |
 | Deployment | **Vercel** (Frontend) + **Render** (Backend)                        |
 
