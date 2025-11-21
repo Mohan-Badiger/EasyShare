@@ -8,9 +8,13 @@ Live Demo : https://easysharefiles.vercel.app/
 ### 🧠 Problem
 
 Most file sharing tools need:
+
 Login/user accounts ❌ 
+
 Cloud storage upload ❌ 
+
 Time-consuming processing ❌ 
+
 
 ---
 
