@@ -27,13 +27,21 @@ A **peer-style file transfer** web app where:
 
 ## ✨ Features
 
+
 ✔ Drag & Drop multi-file upload
+
 ✔ QR Code + Auto-Join support
+
 ✔ Secure unique session IDs
+
 ✔ Mobile ↔ Desktop transfers
+
 ✔ No accounts, no history, no cloud storage
+
 ✔ Chunk-based live streaming for large files
+
 ✔ Real-time WebSocket communication
+
 
 > A true “no-trace” sharing experience 🔐
 
