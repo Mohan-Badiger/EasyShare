@@ -4,6 +4,7 @@ import axios from "axios";
 import socket from "../socket"; // update path if needed
 import {toast} from 'react-toastify'
 import link from '../assets/link.png'
+import NavBar from "./NavBar";
 
 const Receiver = () => {
   const [joinCode, setJoinCode] = useState("");
@@ -200,7 +201,9 @@ const Receiver = () => {
 
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center px-4 py-8">
+    <>
+    <NavBar/>
+    <div className="min-h-[88vh] bg-white text-gray-900 flex items-center justify-center px-4 py-2 sm:py-0">
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[1.1fr_1.9fr] gap-8">
 
         {/* LEFT SIDE – JOIN SESSION */}
@@ -364,6 +367,7 @@ const Receiver = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
