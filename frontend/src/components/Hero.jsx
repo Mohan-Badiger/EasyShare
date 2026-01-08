@@ -77,7 +77,7 @@ const Hero = () => {
                         Developed By Mohan Badiger
                     </p>
                     <p className="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
-                        ©2025 <a href="">EasyShare</a>. All rights reserved.
+                        &copy; {new Date().getFullYear()} <a href="">EasyShare</a>. All rights reserved.
                     </p>
                 </div>
             </footer>
