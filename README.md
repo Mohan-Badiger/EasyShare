@@ -31,7 +31,6 @@ A **peer-style file transfer** web app where:
 
 ## ✨ Features
 
-
 ✔ Drag & Drop multi-file upload
 
 ✔ QR Code + Auto-Join support
@@ -145,6 +144,7 @@ Feel free to open an issue or submit a PR 💡
 💼 Full-Stack & Real-Time Web Developer
 
 🔗 LinkedIn: https://www.linkedin.com/in/mohan-badiger
+
 📧 Email: mohanbadiger250@gmail.com
 
 ##ScreenShots
