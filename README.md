@@ -86,7 +86,7 @@ A **peer-style file transfer** web app where:
 ## 🖥️ Installation (Local)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/easyshare.git
+git clone https://github.com/Mohan-Badiger/easyshare.git
 cd easyshare
 ```
 
