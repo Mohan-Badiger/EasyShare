@@ -8,12 +8,9 @@ Live Demo : https://easysharefiles.vercel.app/
 ### 🧠 Problem
 
 Most file sharing tools need:
-
-Login/user accounts ❌ 
-
-Cloud storage upload ❌ 
-
-Time-consuming processing ❌ 
+Login/user accounts  
+Cloud storage upload  
+Time-consuming processing 
 
 
 ---
@@ -145,7 +142,8 @@ Feel free to open an issue or submit a PR 💡
 
 🔗 LinkedIn: https://www.linkedin.com/in/mohan-badiger
 
-📧 Email: mohanbadiger250@gmail.com
+Email: mohanbadiger250@gmail.com
+Site : mohanbadiger.site
 
 ##ScreenShots
 
