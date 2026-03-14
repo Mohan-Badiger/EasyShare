@@ -5,6 +5,8 @@ EasyShare — Real-Time Cross-Device File Sharing.
 
 Live Demo : https://easysharefiles.vercel.app
 
+help? : https://mohanbadiger.site
+
 ### 🧠 Problem
 
 Most file sharing tools need:
