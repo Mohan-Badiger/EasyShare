@@ -3,7 +3,7 @@ EasyShare — Real-Time Cross-Device File Sharing.
 > Share big files instantly with no login and no storage.
 > Connected by QR. Powered by WebSockets.
 
-Live Demo : https://easysharefiles.vercel.app
+Live : https://easysharefiles.vercel.app
 
 help? : https://mohanbadiger.site
 
