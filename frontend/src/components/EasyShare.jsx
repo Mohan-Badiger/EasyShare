@@ -14,7 +14,7 @@ const EasyShare = () => {
             <section>
                 {/* Main Hero Content */}
                 <main className="flex flex-col items-center max-md:px-2">
-                    <p className="mt-10 sm:mt-18 flex items-center gap-2 border border-indigo-200 rounded-full p-1 pr-3 text-sm font-medium text-indigo-500 bg-indigo-200/20">
+                    <div className="mt-10 sm:mt-18 flex items-center gap-2 border border-indigo-200 rounded-full p-1 pr-3 text-sm font-medium text-indigo-500 bg-indigo-200/20">
                         <span className="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full">
                             NEW
                         </span>
@@ -22,7 +22,7 @@ const EasyShare = () => {
                             <span>Try it for free</span>
                            
                         </p>
-                    </p>
+                    </div>
 
                     <h1 className="text-center text-2xl leading-10 sm:leading-[58px] md:text-4xl md:leading-80px font-semibold max-w-4xl text-slate-900">
                         EasyShare: Speed & Security, Simplified.
