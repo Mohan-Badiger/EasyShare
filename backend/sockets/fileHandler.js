@@ -23,19 +23,32 @@ export const fileHandler = (io, socket) => {
     console.log("Receiver registered:", sessionId);
   });
 
-  // Stream file metadata
+  // WebRTC Signaling
+  socket.on("webrtc-offer", (data) => {
+    socket.to(data.sessionId).emit("webrtc-offer", data.offer);
+  });
+
+  socket.on("webrtc-answer", (data) => {
+    socket.to(data.sessionId).emit("webrtc-answer", data.answer);
+  });
+
+  socket.on("webrtc-ice-candidate", (data) => {
+    socket.to(data.sessionId).emit("webrtc-ice-candidate", data.candidate);
+  });
+
+  // Stream file metadata (fallback/legacy)
   socket.on("file-meta", (data) => {
     const { sessionId } = data;
     socket.to(sessionId).emit("file-meta", data);
   });
 
-  // Stream chunk data
+  // Stream chunk data (fallback/legacy)
   socket.on("file-chunk", (data) => {
     const { sessionId } = data;
     socket.to(sessionId).emit("file-chunk", data);
   });
 
-  // File transfer complete
+  // File transfer complete (fallback/legacy)
   socket.on("file-complete", ({ sessionId }) => {
     socket.to(sessionId).emit("file-complete");
   });
