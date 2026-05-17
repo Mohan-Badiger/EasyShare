@@ -368,6 +368,13 @@ const Sender = () => {
     setIsDragging(drag);
   };
 
+  const handleCopyCode = () => {
+    if (joinCode) {
+      navigator.clipboard.writeText(joinCode);
+      toast.success("Code copied to clipboard!");
+    }
+  };
+
   const allFilesCompleted = selectedFiles.length > 0 && selectedFiles.every(f => f.status === "Completed");
   const isSendDisabled = !joinCode || selectedFiles.length === 0 || isSending || (!webrtcReady && !receiverConnected) || allFilesCompleted;
 
@@ -392,8 +399,18 @@ const Sender = () => {
                 <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">
                   Join Code
                 </p>
-                <p className="text-2xl font-sans font-semibold">
+                <p className="text-2xl font-sans font-semibold flex items-center gap-2">
                   {joinCode || "------"}
+                  {joinCode && (
+                    <button
+                      type="button"
+                      onClick={handleCopyCode}
+                      title="Copy code"
+                      className="text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                    >
+                      <i className="far fa-copy text-lg"></i>
+                    </button>
+                  )}
                 </p>
                 {receiverConnected && (
                   <p className="text-[11px] text-green-600 mt-1 font-semibold flex items-center gap-1">
@@ -401,42 +418,38 @@ const Sender = () => {
                     Receiver connected
                   </p>
                 )}
-                {joinCode || receiverConnected ? (
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-sm text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors text-xs font-medium"
-                  >
-                    <i className="fas fa-unlink text-[10px]"></i>
-                    Disconnect
-                  </button>
-                ) : null}
               </div>
-              <button
-                type="button"
-                onClick={handleGenerateCode}
-                disabled={isGenerating || codeLocked}
-                className={`px-4 py-2 rounded-sm text-white text-sm font-medium transition-colors
-                ${isGenerating || codeLocked
-                    ? "bg-indigo-400 cursor-not-allowed"
-                    : "bg-indigo-600 hover:bg-indigo-700"
-                  }`}
-              >
-                {isGenerating
-                  ? "Generating..."
-                  : codeLocked
-                    ? "Generated"
-                    : "Generate"}
-              </button>
+              {codeLocked ? (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 rounded-sm text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 text-sm font-medium transition-colors"
+                >
+                  Disconnect
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGenerateCode}
+                  disabled={isGenerating}
+                  className={`px-4 py-2 rounded-sm text-white text-sm font-medium transition-colors
+                  ${isGenerating
+                      ? "bg-indigo-400 cursor-not-allowed"
+                      : "bg-indigo-600 hover:bg-indigo-700"
+                    }`}
+                >
+                  {isGenerating ? "Generating..." : "Generate"}
+                </button>
+              )}
             </div>
 
             {/* QR Preview */}
             <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col items-center gap-3">
               <p className="text-xs uppercase tracking-wide text-gray-700">QR Code (Scan to join securely)</p>
 
-              <div className="w-40 h-40 bg-gray-100 border border-dashed border-gray-300 rounded-xl flex items-center justify-center">
+              <div className="w-40 h-40 bg-gray-100 border border-dashed border-gray-300 rounded flex items-center justify-center">
                 {joinCode && urlHash ? (
-                  <div className="bg-white p-2 rounded-md">
+                  <div className="bg-white p-2">
                     <QRCode
                       value={`${APP_BASE_URL}/receiver?code=${joinCode}#key=${urlHash}`}
                       size={128}

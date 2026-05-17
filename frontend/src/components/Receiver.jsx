@@ -360,22 +360,28 @@ const Receiver = () => {
                   disabled={isJoined}
                 />
 
-                <button
-                  type="button"
-                  onClick={() => handleJoinSession()}
-                  disabled={isJoined || isJoining}
-                  className={`w-full md:w-auto px-4 py-2 rounded-sm text-white text-sm font-medium transition-colors
-                  ${(isJoined || isJoining)
-                      ? "bg-indigo-400 cursor-not-allowed"
-                      : "bg-indigo-600 hover:bg-indigo-700"
-                    }`}
-                >
-                  {isJoined
-                    ? "Joined"
-                    : isJoining
-                      ? "Joining..."
-                      : "Join"}
-                </button>
+                {isJoined ? (
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="w-full md:w-auto px-4 py-2 rounded-sm text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 text-sm font-medium transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleJoinSession()}
+                    disabled={isJoining}
+                    className={`w-full md:w-auto px-4 py-2 rounded-sm text-white text-sm font-medium transition-colors
+                    ${isJoining
+                        ? "bg-indigo-400 cursor-not-allowed"
+                        : "bg-indigo-600 hover:bg-indigo-700"
+                      }`}
+                  >
+                    {isJoining ? "Joining..." : "Join"}
+                  </button>
+                )}
               </div>
 
               {isJoined ? (
@@ -385,14 +391,6 @@ const Receiver = () => {
                     {webrtcReady && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-2"></span>}
                     {webrtcReady && <span>P2P Ready</span>}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-sm text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors text-xs font-medium"
-                  >
-                    <i className="fas fa-unlink text-[10px]"></i>
-                    Disconnect
-                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-gray-400 mt-1">
