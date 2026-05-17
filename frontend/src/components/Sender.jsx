@@ -6,10 +6,10 @@ import { toast } from 'react-toastify';
 import NavBar from '../components/NavBar.jsx';
 import JSZip from "jszip";
 import { generateEncryptionKey, encryptChunk } from "../utils/crypto.js";
-
+import { BACKEND_URL } from "../config.js";
 const Sender = () => {
 
-  const APP_BASE_URL = import.meta.env.VITE_APP_BASE_URL;
+  const APP_BASE_URL = window.location.origin;
 
   const [joinCode, setJoinCode] = useState("");
   // Selected files are now an array of objects: { id, file, name, size, type, progress, speed, eta, thumbnail, status }
@@ -132,7 +132,7 @@ const Sender = () => {
       setCryptoKey(key);
       setUrlHash(base64Key);
 
-      const res = await axios.post(import.meta.env.VITE_BACKEND_URL + "/api/session/create");
+      const res = await axios.post(BACKEND_URL + "/api/session/create");
       const code = res.data.sessionId;
       setJoinCode(code);
 

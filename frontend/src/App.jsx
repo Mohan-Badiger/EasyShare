@@ -6,11 +6,12 @@ import Sender from './components/Sender'
 import Receiver from './components/Receiver'
 import {ToastContainer} from 'react-toastify'
 import { socket } from './socket'
+import { BACKEND_URL } from './config'
 
 const App = () => {
   useEffect(() => {
     // 1. Ping the backend via HTTP to wake up the Render server immediately
-    fetch(import.meta.env.VITE_BACKEND_URL)
+    fetch(BACKEND_URL)
       .catch(() => console.log("Pre-warming backend server..."));
       
     // 2. Connect the WebSocket preemptively so it's instantly ready when needed

@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import link from '../assets/link.png';
 import NavBar from "./NavBar";
 import { importEncryptionKey, decryptChunk } from "../utils/crypto.js";
-
+import { BACKEND_URL } from "../config.js";
 const Receiver = () => {
   const [joinCode, setJoinCode] = useState("");
   const [isJoined, setIsJoined] = useState(false);
@@ -290,7 +290,7 @@ const Receiver = () => {
         }
       }
 
-      const res = await axios.post(import.meta.env.VITE_BACKEND_URL + "/api/session/validate", { sessionId: code });
+      const res = await axios.post(BACKEND_URL + "/api/session/validate", { sessionId: code });
 
       if (!res.data.valid) {
         toast.error(res.data.message || "Invalid session.");
