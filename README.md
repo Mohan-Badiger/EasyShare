@@ -1,20 +1,18 @@
-EasyShare — Real-Time Cross-Device File Sharing
+EasyShare — Real-Time Cross-Device File Sharing.
 
-> **Share big files instantly with no login and no storage.
-> Connected by QR. Powered by WebSockets.** ⚡📱💻
+> Share big files instantly with no login and no storage.
+> Connected by QR. Powered by WebSockets.
 
-Live Demo : https://easysharefiles.vercel.app/
+Live : https://easysharefiles.vercel.app
+
+help? : https://mohanbadiger.site
 
 ### 🧠 Problem
 
 Most file sharing tools need:
-
-Login/user accounts ❌ 
-
-Cloud storage upload ❌ 
-
-Time-consuming processing ❌ 
-
+Login/user accounts  
+Cloud storage upload  
+Time-consuming processing 
 
 ---
 
@@ -30,7 +28,6 @@ A **peer-style file transfer** web app where:
 ---
 
 ## ✨ Features
-
 
 ✔ Drag & Drop multi-file upload
 
@@ -86,7 +83,7 @@ A **peer-style file transfer** web app where:
 ## 🖥️ Installation (Local)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/easyshare.git
+git clone https://github.com/Mohan-Badiger/easyshare.git
 cd easyshare
 ```
 
@@ -145,7 +142,9 @@ Feel free to open an issue or submit a PR 💡
 💼 Full-Stack & Real-Time Web Developer
 
 🔗 LinkedIn: https://www.linkedin.com/in/mohan-badiger
-📧 Email: mohanbadiger250@gmail.com
+
+Email: mohanbadiger250@gmail.com
+Site : mohanbadiger.site
 
 ##ScreenShots
 
