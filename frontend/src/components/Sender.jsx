@@ -368,7 +368,8 @@ const Sender = () => {
     setIsDragging(drag);
   };
 
-  const isSendDisabled = !joinCode || selectedFiles.length === 0 || isSending || (!webrtcReady && !receiverConnected);
+  const allFilesCompleted = selectedFiles.length > 0 && selectedFiles.every(f => f.status === "Completed");
+  const isSendDisabled = !joinCode || selectedFiles.length === 0 || isSending || (!webrtcReady && !receiverConnected) || allFilesCompleted;
 
   return (
     <>
@@ -400,6 +401,16 @@ const Sender = () => {
                     Receiver connected
                   </p>
                 )}
+                {joinCode || receiverConnected ? (
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-sm text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors text-xs font-medium"
+                  >
+                    <i className="fas fa-unlink text-[10px]"></i>
+                    Disconnect
+                  </button>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -523,10 +534,17 @@ const Sender = () => {
                         )}
                       </div>
 
-                      {/* Progress Bar */}
+                      {/* Premium Progress Bar */}
                       {fObj.status !== "Pending" && (
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1 overflow-hidden">
-                          <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${fObj.progress}%` }}></div>
+                        <div className="w-full bg-slate-200/70 rounded-full h-2 mt-2 overflow-hidden shadow-inner">
+                          <div
+                            className="h-full rounded-full transition-all duration-300 bg-linear-to-r from-indigo-500 via-purple-500 to-indigo-600 shadow-[0_0_8px_rgba(99,102,241,0.6)] relative overflow-hidden"
+                            style={{ width: `${fObj.progress}%` }}
+                          >
+                            {fObj.status === "Sending" && (
+                              <div className="absolute inset-0 bg-white/20 w-full" style={{ backgroundImage: 'linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent)', backgroundSize: '1rem 1rem', animation: 'progress-stripes 1s linear infinite' }}></div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </li>
@@ -546,8 +564,16 @@ const Sender = () => {
                   : "bg-indigo-600 hover:bg-indigo-700"
                 }`}
             >
-              {isSending ? "Sending via P2P..." : "Send Files Securely"}
+              {isSending ? "Sending Securely..." : allFilesCompleted ? "All Sent" : "Send Files Securely"}
             </button>
+
+            {/* Trust Badge */}
+            <p className="mt-3 text-[11px] text-gray-500 flex items-center justify-center gap-1.5 font-medium">
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-100 text-green-600 shadow-sm">
+                <i className="fas fa-shield-alt text-[9px]"></i>
+              </span>
+              Trusty Website. 100% Secure & End-to-End Encrypted.
+            </p>
           </div>
 
         </div>

@@ -11,12 +11,12 @@ const Receiver = () => {
   const [isJoined, setIsJoined] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
 
-  const [receivedFiles, setReceivedFiles] = useState([]); 
+  const [receivedFiles, setReceivedFiles] = useState([]);
   const [webrtcReady, setWebrtcReady] = useState(false);
 
   // E2EE
   const [cryptoKey, setCryptoKey] = useState(null);
-  
+
   const pcRef = useRef(null);
   const dcRef = useRef(null);
   const fileMetaRef = useRef(null);
@@ -65,7 +65,7 @@ const Receiver = () => {
         try {
           const k = await importEncryptionKey(data.key);
           setCryptoKey(k);
-        } catch(e) {}
+        } catch (e) { }
       }
       const pc = new RTCPeerConnection(ICE_SERVERS);
       pcRef.current = pc;
@@ -102,7 +102,7 @@ const Receiver = () => {
               startTimeRef.current = Date.now();
               lastTimeRef.current = Date.now();
               lastOffsetRef.current = 0;
-              
+
               setReceivedFiles(prev => [...prev, {
                 id: fileId,
                 name: data.fileName,
@@ -128,7 +128,7 @@ const Receiver = () => {
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                
+
                 playSound('success');
 
                 setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, status: "Completed", progress: 100, speed: 0, eta: 0 } : f));
@@ -145,7 +145,7 @@ const Receiver = () => {
                 }
                 chunksRef.current.push(chunk);
                 totalReceivedRef.current += chunk.byteLength;
-                
+
                 const now = Date.now();
                 if (now - lastTimeRef.current > 500) {
                   const meta = fileMetaRef.current;
@@ -153,9 +153,9 @@ const Receiver = () => {
                   const progress = Math.round((offset / meta.size) * 100);
                   const speed = (offset - lastOffsetRef.current) / ((now - lastTimeRef.current) / 1000); // bytes/sec
                   const eta = (meta.size - offset) / speed;
-                  
+
                   setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, progress, speed, eta } : f));
-                  
+
                   lastTimeRef.current = now;
                   lastOffsetRef.current = offset;
                 }
@@ -194,7 +194,7 @@ const Receiver = () => {
       startTimeRef.current = Date.now();
       lastTimeRef.current = Date.now();
       lastOffsetRef.current = 0;
-      
+
       setReceivedFiles(prev => [...prev, {
         id: fileId,
         name: data.fileName,
@@ -208,7 +208,7 @@ const Receiver = () => {
     };
 
     let wsDecryptChain = Promise.resolve();
-    
+
     const handleChunk = (data) => {
       wsDecryptChain = wsDecryptChain.then(async () => {
         try {
@@ -218,7 +218,7 @@ const Receiver = () => {
           }
           chunksRef.current.push(chunk);
           totalReceivedRef.current += chunk.byteLength;
-          
+
           const now = Date.now();
           if (now - lastTimeRef.current > 500) {
             const meta = fileMetaRef.current;
@@ -226,9 +226,9 @@ const Receiver = () => {
             const progress = Math.round((offset / meta.size) * 100);
             const speed = (offset - lastOffsetRef.current) / ((now - lastTimeRef.current) / 1000);
             const eta = (meta.size - offset) / speed;
-            
+
             setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, progress, speed, eta } : f));
-            
+
             lastTimeRef.current = now;
             lastOffsetRef.current = offset;
           }
@@ -250,7 +250,7 @@ const Receiver = () => {
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-        
+
         playSound('success');
 
         setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, status: "Completed", progress: 100, speed: 0, eta: 0 } : f));
@@ -284,13 +284,13 @@ const Receiver = () => {
           k = await importEncryptionKey(keyParam);
           setCryptoKey(k);
           toast.info("E2EE Active");
-        } catch(e) {
+        } catch (e) {
           console.error("Invalid key:", e);
           toast.error("Invalid E2EE Key.");
         }
       }
 
-      const res = await axios.post(import.meta.env.VITE_BACKEND_URL+"/api/session/validate", { sessionId: code });
+      const res = await axios.post(import.meta.env.VITE_BACKEND_URL + "/api/session/validate", { sessionId: code });
 
       if (!res.data.valid) {
         toast.error(res.data.message || "Invalid session.");
@@ -313,11 +313,11 @@ const Receiver = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const codeParam = params.get("code");
-    
+
     // Check hash for E2EE key
     let keyHash = window.location.hash.replace("#key=", "");
     if (!keyHash && window.location.hash.startsWith("#key=")) {
-       keyHash = window.location.hash.split("=")[1];
+      keyHash = window.location.hash.split("=")[1];
     }
 
     if (codeParam) {
@@ -330,145 +330,171 @@ const Receiver = () => {
 
   return (
     <>
-    <NavBar/>
-    <div className="min-h-[88vh] bg-white text-gray-900 flex items-center justify-center px-4 py-2 sm:py-0">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[1.1fr_1.9fr] gap-8">
+      <NavBar />
+      <div className="min-h-[88vh] bg-white text-gray-900 flex items-center justify-center px-4 py-2 sm:py-6">
+        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[1.1fr_1.9fr] gap-8">
 
-        {/* LEFT SIDE – JOIN SESSION */}
-        <div className="bg-gray-50 border border-indigo-200 rounded-md p-6 lg:p-8 shadow-sm flex flex-col gap-6">
-          <div>
-            <h2 className="text-2xl font-semibold mb-1">Join Session</h2>
-            <p className="text-sm text-gray-500">
-              Enter a join code or scan a QR to connect with the sender securely.
-            </p>
-          </div>
+          {/* LEFT SIDE – JOIN SESSION */}
+          <div className="bg-gray-50 border border-indigo-200 rounded-md p-6 lg:p-8 shadow-sm flex flex-col gap-6">
+            <div>
+              <h2 className="text-2xl font-semibold mb-1">Join Session</h2>
+              <p className="text-sm text-gray-500">
+                Enter a join code or scan a QR to connect with the sender securely.
+              </p>
+            </div>
 
-          <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col gap-3">
-            <label htmlFor="joinCode" className="text-xs uppercase tracking-wide text-gray-500">
-              Join Code
-            </label>
+            <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col gap-3">
+              <label htmlFor="joinCode" className="text-xs uppercase tracking-wide text-gray-500">
+                Join Code
+              </label>
 
-            <div className="flex flex-col md:flex-row gap-3 w-full">
-              <input
-                id="joinCode"
-                type="text"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="e.g. 4F9KQZ"
-                className="flex-1 px-3 py-2 rounded-sm border border-gray-300 text-sm 
+              <div className="flex flex-col md:flex-row gap-3 w-full">
+                <input
+                  id="joinCode"
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. 4F9KQZ"
+                  className="flex-1 px-3 py-2 rounded-sm border border-gray-300 text-sm 
                 outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono min-w-[140px]"
-                disabled={isJoined}
-              />
+                  disabled={isJoined}
+                />
 
-              <button
-                type="button"
-                onClick={() => handleJoinSession()}
-                disabled={isJoined || isJoining}
-                className={`w-full md:w-auto px-4 py-2 rounded-sm text-white text-sm font-medium transition-colors
+                <button
+                  type="button"
+                  onClick={() => handleJoinSession()}
+                  disabled={isJoined || isJoining}
+                  className={`w-full md:w-auto px-4 py-2 rounded-sm text-white text-sm font-medium transition-colors
                   ${(isJoined || isJoining)
-                    ? "bg-indigo-400 cursor-not-allowed"
-                    : "bg-indigo-600 hover:bg-indigo-700"
-                  }`}
-              >
-                {isJoined
-                  ? "Joined"
-                  : isJoining
-                    ? "Joining..."
-                    : "Join"}
-              </button>
-            </div>
-
-            {isJoined ? (
-              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                Connected to session <span className="font-mono font-semibold">{joinCode}</span>.
-                {webrtcReady && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-2"></span>}
-                {webrtcReady && <span>P2P Ready</span>}
-              </p>
-            ) : (
-              <p className="text-xs text-gray-400 mt-1">
-                Ask the sender to share their join code with you.
-              </p>
-            )}
-          </div>
-
-          <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col items-center">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Developed By</p>
-            <p className="text-md uppercase font-semibold font-sans tracking-wide text-gray-600">Mohan Badiger</p>
-           <div className="flex gap-2 align-middle items-center">
-            <a href="https://mohanbadiger.vercel.app" target="_blank" className="text-xs uppercase text-gray-500 cursor-pointer hover:text-indigo-600">click here to visit website</a>
-            <img className="w-3 h-3" src={link} alt="" />
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT SIDE – WAITING FOR FILES */}
-        <div className="rounded-md border-2 border-dashed border-gray-300 bg-gray-100 p-8 flex flex-col items-center justify-center gap-4 shadow-sm">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-14 h-14 rounded-md bg-white border border-indigo-200 flex items-center justify-center">
-              <i className="fas fa-cloud-arrow-down text-2xl text-indigo-500" />
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold">
-                {isJoined ? "Waiting for files from sender..." : "Join a session to start receiving files"}
-              </p>
-              <p className="text-sm text-gray-500 max-w-md mx-auto mt-1">
-                {isJoined
-                  ? "Keep this page open. Files will stream directly to you."
-                  : "Enter a valid join code or scan the sender's QR code."}
-              </p>
-            </div>
-          </div>
-
-          <div className="w-full mt-4 max-h-64 overflow-y-auto bg-white border border-indigo-200 rounded-xl p-4">
-            <p className="text-xs text-gray-500 mb-2">Incoming Files</p>
-
-            {receivedFiles.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center text-xs text-gray-400 gap-2 py-6">
-                <i className="fas fa-folder-open text-lg" />
-                <p>No files received yet.</p>
+                      ? "bg-indigo-400 cursor-not-allowed"
+                      : "bg-indigo-600 hover:bg-indigo-700"
+                    }`}
+                >
+                  {isJoined
+                    ? "Joined"
+                    : isJoining
+                      ? "Joining..."
+                      : "Join"}
+                </button>
               </div>
-            ) : (
-              <ul className="text-xs space-y-2">
-                {receivedFiles.map((file) => (
-                  <li
-                    key={file.id}
-                    className="flex flex-col gap-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+
+              {isJoined ? (
+                <div className="flex flex-col gap-1 items-start mt-1">
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    Connected to session <span className="font-mono font-semibold">{joinCode}</span>.
+                    {webrtcReady && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-2"></span>}
+                    {webrtcReady && <span>P2P Ready</span>}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-sm text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors text-xs font-medium"
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1 overflow-hidden">
-                        <p className="text-gray-700 font-medium truncate">
-                          {file.name}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB
-                          {file.speed > 0 && ` • ${(file.speed / (1024 * 1024)).toFixed(1)} MB/s`}
-                          {file.eta > 0 && ` • ${Math.round(file.eta)}s left`}
-                        </p>
-                      </div>
-                      <span
-                        className={`text-[10px] font-semibold ${file.status === "Completed"
+                    <i className="fas fa-unlink text-[10px]"></i>
+                    Disconnect
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1">
+                  Ask the sender to share their join code with you.
+                </p>
+              )}
+            </div>
+
+            <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col items-center">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Developed By</p>
+              <p className="text-md uppercase font-semibold font-sans tracking-wide text-gray-600">Mohan Badiger</p>
+              <div className="flex gap-2 align-middle items-center">
+                <a href="https://mohanbadiger.vercel.app" target="_blank" className="text-xs uppercase text-gray-500 cursor-pointer hover:text-indigo-600">click here to visit website</a>
+                <img className="w-3 h-3" src={link} alt="" />
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT SIDE – WAITING FOR FILES */}
+          <div className="rounded-md border-2 border-dashed border-gray-300 bg-gray-100 p-8 flex flex-col items-center justify-center gap-4 shadow-sm">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-14 h-14 rounded-md bg-white border border-indigo-200 flex items-center justify-center">
+                <i className="fas fa-cloud-arrow-down text-2xl text-indigo-500" />
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold">
+                  {isJoined ? "Waiting for files from sender..." : "Join a session to start receiving files"}
+                </p>
+                <p className="text-sm text-gray-500 max-w-md mx-auto mt-1">
+                  {isJoined
+                    ? "Keep this page open. Files will stream directly to you."
+                    : "Enter a valid join code or scan the sender's QR code."}
+                </p>
+              </div>
+            </div>
+
+            <div className="w-full mt-4 max-h-64 overflow-y-auto bg-white border border-indigo-200 rounded-xl p-4">
+              <p className="text-xs text-gray-500 mb-2">Incoming Files</p>
+
+              {receivedFiles.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center text-xs text-gray-400 gap-2 py-6">
+                  <i className="fas fa-folder-open text-lg" />
+                  <p>No files received yet.</p>
+                </div>
+              ) : (
+                <ul className="text-xs space-y-2">
+                  {receivedFiles.map((file) => (
+                    <li
+                      key={file.id}
+                      className="flex flex-col gap-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1 overflow-hidden">
+                          <p className="text-gray-700 font-medium truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-[10px] text-gray-500">
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                            {file.speed > 0 && ` • ${(file.speed / (1024 * 1024)).toFixed(1)} MB/s`}
+                            {file.eta > 0 && ` • ${Math.round(file.eta)}s left`}
+                          </p>
+                        </div>
+                        <span
+                          className={`text-[10px] font-semibold ${file.status === "Completed"
                             ? "text-green-600"
                             : "text-indigo-500"
-                          }`}
-                      >
-                        {file.status}
-                      </span>
-                    </div>
-                    
-                    {file.status !== "Pending" && (
-                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1 overflow-hidden">
-                        <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
+                            }`}
+                        >
+                          {file.status}
+                        </span>
                       </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
 
+                      {/* Premium Progress Bar */}
+                      {file.status !== "Pending" && (
+                        <div className="w-full bg-slate-200/70 rounded-full h-2 mt-2 overflow-hidden shadow-inner">
+                          <div
+                            className="h-full rounded-full transition-all duration-300 bg-linear-to-r from-indigo-500 via-purple-500 to-indigo-600 shadow-[0_0_8px_rgba(99,102,241,0.6)] relative overflow-hidden"
+                            style={{ width: `${file.progress}%` }}
+                          >
+                            {file.status === "Receiving" && (
+                              <div className="absolute inset-0 bg-white/20 w-full" style={{ backgroundImage: 'linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent)', backgroundSize: '1rem 1rem', animation: 'progress-stripes 1s linear infinite' }}></div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Trust Badge */}
+            <p className="mt-3 text-[11px] text-gray-500 flex items-center justify-center gap-1.5 font-medium">
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-100 text-green-600 shadow-sm">
+                <i className="fas fa-shield-alt text-[9px]"></i>
+              </span>
+              Trusty Website. 100% Secure & End-to-End Encrypted.
+            </p>
+
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 };
