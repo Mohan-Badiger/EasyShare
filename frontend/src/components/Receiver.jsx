@@ -78,10 +78,12 @@ const Receiver = () => {
           console.log("✅ WebRTC DataChannel Opened!");
           setWebrtcReady(true);
           playSound('connect');
-          toast.success("Peer-to-peer connection established!");
+          toast.success("P2P Connected!");
         };
 
-        dc.onmessage = async (e) => {
+        let decryptChain = Promise.resolve();
+
+        dc.onmessage = (e) => {
           if (typeof e.data === "string") {
             const data = JSON.parse(e.data);
             if (data.type === "meta") {
@@ -108,47 +110,52 @@ const Receiver = () => {
               // Acknowledge meta
               dc.send("meta-ack");
             } else if (data.type === "complete") {
-              const meta = fileMetaRef.current;
-              const blob = new Blob(chunksRef.current, { type: meta.type || "application/octet-stream" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = meta.name || "download";
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              URL.revokeObjectURL(url);
-              
-              playSound('success');
+              decryptChain = decryptChain.then(() => {
+                const meta = fileMetaRef.current;
+                const blob = new Blob(chunksRef.current, { type: meta.type || "application/octet-stream" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = meta.name || "download";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                
+                playSound('success');
 
-              setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, status: "Completed", progress: 100, speed: 0, eta: 0 } : f));
+                setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, status: "Completed", progress: 100, speed: 0, eta: 0 } : f));
+              });
             }
           } else {
             // Binary chunk (ArrayBuffer)
-            try {
-              let chunk = e.data;
-              if (cryptoKey) {
-                chunk = await decryptChunk(cryptoKey, chunk);
-              }
-              chunksRef.current.push(chunk);
-              totalReceivedRef.current += chunk.byteLength;
-              
-              const now = Date.now();
-              if (now - lastTimeRef.current > 500) {
-                const meta = fileMetaRef.current;
-                const offset = totalReceivedRef.current;
-                const progress = Math.round((offset / meta.size) * 100);
-                const speed = (offset - lastOffsetRef.current) / ((now - lastTimeRef.current) / 1000); // bytes/sec
-                const eta = (meta.size - offset) / speed;
+            const chunkData = e.data;
+            decryptChain = decryptChain.then(async () => {
+              try {
+                let chunk = chunkData;
+                if (cryptoKey) {
+                  chunk = await decryptChunk(cryptoKey, chunk);
+                }
+                chunksRef.current.push(chunk);
+                totalReceivedRef.current += chunk.byteLength;
                 
-                setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, progress, speed, eta } : f));
-                
-                lastTimeRef.current = now;
-                lastOffsetRef.current = offset;
+                const now = Date.now();
+                if (now - lastTimeRef.current > 500) {
+                  const meta = fileMetaRef.current;
+                  const offset = totalReceivedRef.current;
+                  const progress = Math.round((offset / meta.size) * 100);
+                  const speed = (offset - lastOffsetRef.current) / ((now - lastTimeRef.current) / 1000); // bytes/sec
+                  const eta = (meta.size - offset) / speed;
+                  
+                  setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, progress, speed, eta } : f));
+                  
+                  lastTimeRef.current = now;
+                  lastOffsetRef.current = offset;
+                }
+              } catch (err) {
+                console.error("Decryption or processing error:", err);
               }
-            } catch (err) {
-              console.error("Decryption or processing error:", err);
-            }
+            });
           }
         };
 
@@ -189,17 +196,17 @@ const Receiver = () => {
         try {
           k = await importEncryptionKey(keyParam);
           setCryptoKey(k);
-          toast.info("End-to-End Encryption Enabled");
+          toast.info("E2EE Active");
         } catch(e) {
           console.error("Invalid key:", e);
-          toast.error("Invalid encryption key in URL.");
+          toast.error("Invalid E2EE Key.");
         }
       }
 
       const res = await axios.post(import.meta.env.VITE_BACKEND_URL+"/api/session/validate", { sessionId: code });
 
       if (!res.data.valid) {
-        toast.error(res.data.message || "Invalid or expired session code.");
+        toast.error(res.data.message || "Invalid session.");
         return;
       }
 
@@ -210,7 +217,7 @@ const Receiver = () => {
       setIsJoined(true);
     } catch (err) {
       console.error(err);
-      toast.error("Unable to join session.");
+      toast.error("Join failed.");
     } finally {
       setIsJoining(false);
     }
