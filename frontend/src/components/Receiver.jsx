@@ -16,6 +16,7 @@ const Receiver = () => {
 
   // E2EE
   const [cryptoKey, setCryptoKey] = useState(null);
+  const cryptoKeyRef = useRef(null);
 
   const pcRef = useRef(null);
   const dcRef = useRef(null);
@@ -61,10 +62,11 @@ const Receiver = () => {
     socket.on("webrtc-offer", async (data) => {
       console.log("📥 Received WebRTC Offer");
       const offer = data.offer;
-      if (data.key && !cryptoKey) {
+      if (data.key && !cryptoKeyRef.current) {
         try {
           const k = await importEncryptionKey(data.key);
           setCryptoKey(k);
+          cryptoKeyRef.current = k;
         } catch (e) { }
       }
       const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -140,8 +142,8 @@ const Receiver = () => {
             decryptChain = decryptChain.then(async () => {
               try {
                 let chunk = chunkData;
-                if (cryptoKey) {
-                  chunk = await decryptChunk(cryptoKey, chunk);
+                if (cryptoKeyRef.current) {
+                  chunk = await decryptChunk(cryptoKeyRef.current, chunk);
                 }
                 chunksRef.current.push(chunk);
                 totalReceivedRef.current += chunk.byteLength;
@@ -213,8 +215,8 @@ const Receiver = () => {
       wsDecryptChain = wsDecryptChain.then(async () => {
         try {
           let chunk = data.chunk;
-          if (cryptoKey) {
-            chunk = await decryptChunk(cryptoKey, chunk);
+          if (cryptoKeyRef.current) {
+            chunk = await decryptChunk(cryptoKeyRef.current, chunk);
           }
           chunksRef.current.push(chunk);
           totalReceivedRef.current += chunk.byteLength;
@@ -281,8 +283,10 @@ const Receiver = () => {
       let k = null;
       if (keyParam) {
         try {
-          k = await importEncryptionKey(keyParam);
+          const decodedKey = decodeURIComponent(keyParam);
+          k = await importEncryptionKey(decodedKey);
           setCryptoKey(k);
+          cryptoKeyRef.current = k;
           toast.info("E2EE Active");
         } catch (e) {
           console.error("Invalid key:", e);
@@ -318,6 +322,9 @@ const Receiver = () => {
     let keyHash = window.location.hash.replace("#key=", "");
     if (!keyHash && window.location.hash.startsWith("#key=")) {
       keyHash = window.location.hash.split("=")[1];
+    }
+    if (keyHash) {
+      keyHash = decodeURIComponent(keyHash);
     }
 
     if (codeParam) {
@@ -363,7 +370,7 @@ const Receiver = () => {
                 {isJoined ? (
                   <button
                     type="button"
-                    onClick={() => window.location.reload()}
+                    onClick={() => { window.location.href = '/receiver'; }}
                     className="w-full md:w-auto px-4 py-2 rounded-sm text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 text-sm font-medium transition-colors"
                   >
                     Disconnect
