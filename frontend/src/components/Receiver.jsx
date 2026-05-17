@@ -1,204 +1,238 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
 import axios from "axios";
-import socket from "../socket"; // update path if needed
-import {toast} from 'react-toastify'
-import link from '../assets/link.png'
+import socket from "../socket";
+import { toast } from 'react-toastify';
+import link from '../assets/link.png';
 import NavBar from "./NavBar";
+import { importEncryptionKey, decryptChunk } from "../utils/crypto.js";
 
 const Receiver = () => {
   const [joinCode, setJoinCode] = useState("");
   const [isJoined, setIsJoined] = useState(false);
-
-  const [cameraOn, setCameraOn] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
 
-  const videoRef = useRef(null);
-  const codeReaderRef = useRef(null);
-  const streamRef = useRef(null);
+  const [receivedFiles, setReceivedFiles] = useState([]); 
+  const [webrtcReady, setWebrtcReady] = useState(false);
 
-  // 🔹 For receiving file data
+  // E2EE
+  const [cryptoKey, setCryptoKey] = useState(null);
+  
+  const pcRef = useRef(null);
+  const dcRef = useRef(null);
   const fileMetaRef = useRef(null);
   const chunksRef = useRef([]);
-  const [receivedFiles, setReceivedFiles] = useState([]); // 👈 UI list
+  const startTimeRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const lastOffsetRef = useRef(0);
+  const totalReceivedRef = useRef(0);
+  const activeFileIdRef = useRef(null);
 
-  // 🔄 Socket listeners for file receiving
-  useEffect(() => {
-    const handleFileMeta = (meta) => {
-      console.log("📥 File metadata received:", meta);
-      fileMetaRef.current = meta;
-      chunksRef.current = [];
+  const ICE_SERVERS = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-      // Add file to receivedFiles list (as "Receiving")
-      setReceivedFiles((prev) => [
-        ...prev,
-        {
-          fileName: meta.fileName,
-          fileSize: meta.fileSize,
-          fileType: meta.fileType,
-          status: "Receiving", // or "Downloading"
-        },
-      ]);
-    };
-
-    const handleFileChunk = ({ chunk }) => {
-      if (chunk) {
-        chunksRef.current.push(chunk);
+  const playSound = (type) => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      if (type === 'connect') {
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(500, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.1);
+      } else if (type === 'success') {
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime + 0.15);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.3);
+        if (navigator.vibrate) navigator.vibrate(200);
       }
-    };
+    } catch (e) { console.error(e); }
+  };
 
-    const handleFileComplete = () => {
-      const meta = fileMetaRef.current;
-      if (!meta || chunksRef.current.length === 0) return;
+  useEffect(() => {
+    socket.on("webrtc-offer", async (offer) => {
+      console.log("📥 Received WebRTC Offer");
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      pcRef.current = pc;
 
-      const blob = new Blob(chunksRef.current, {
-        type: meta.fileType || "application/octet-stream",
-      });
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("webrtc-ice-candidate", { sessionId: joinCode, candidate: event.candidate });
+        }
+      };
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = meta.fileName || "download";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      pc.ondatachannel = (event) => {
+        const dc = event.channel;
+        dcRef.current = dc;
+        dc.binaryType = "arraybuffer";
 
-      console.log("✅ File downloaded:", meta.fileName);
+        dc.onopen = () => {
+          console.log("✅ WebRTC DataChannel Opened!");
+          setWebrtcReady(true);
+          playSound('connect');
+          toast.success("Peer-to-peer connection established!");
+        };
 
-      // Update status in the UI list
-      setReceivedFiles((prev) =>
-        prev.map((f, idx, arr) => {
-          // assume last added file corresponds to this transfer
-          if (idx === arr.length - 1 && f.fileName === meta.fileName) {
-            return { ...f, status: "Completed" };
+        dc.onmessage = async (e) => {
+          if (typeof e.data === "string") {
+            const data = JSON.parse(e.data);
+            if (data.type === "meta") {
+              const fileId = Math.random().toString(36).substring(7);
+              activeFileIdRef.current = fileId;
+              fileMetaRef.current = { name: data.fileName, size: data.fileSize, type: data.fileType };
+              chunksRef.current = [];
+              totalReceivedRef.current = 0;
+              startTimeRef.current = Date.now();
+              lastTimeRef.current = Date.now();
+              lastOffsetRef.current = 0;
+              
+              setReceivedFiles(prev => [...prev, {
+                id: fileId,
+                name: data.fileName,
+                size: data.fileSize,
+                type: data.fileType,
+                progress: 0,
+                speed: 0,
+                eta: 0,
+                status: "Receiving"
+              }]);
+
+              // Acknowledge meta
+              dc.send("meta-ack");
+            } else if (data.type === "complete") {
+              const meta = fileMetaRef.current;
+              const blob = new Blob(chunksRef.current, { type: meta.type || "application/octet-stream" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = meta.name || "download";
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+              
+              playSound('success');
+
+              setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, status: "Completed", progress: 100, speed: 0, eta: 0 } : f));
+            }
+          } else {
+            // Binary chunk (ArrayBuffer)
+            try {
+              let chunk = e.data;
+              if (cryptoKey) {
+                chunk = await decryptChunk(cryptoKey, chunk);
+              }
+              chunksRef.current.push(chunk);
+              totalReceivedRef.current += chunk.byteLength;
+              
+              const now = Date.now();
+              if (now - lastTimeRef.current > 500) {
+                const meta = fileMetaRef.current;
+                const offset = totalReceivedRef.current;
+                const progress = Math.round((offset / meta.size) * 100);
+                const speed = (offset - lastOffsetRef.current) / ((now - lastTimeRef.current) / 1000); // bytes/sec
+                const eta = (meta.size - offset) / speed;
+                
+                setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, progress, speed, eta } : f));
+                
+                lastTimeRef.current = now;
+                lastOffsetRef.current = offset;
+              }
+            } catch (err) {
+              console.error("Decryption or processing error:", err);
+            }
           }
-          return f;
-        })
-      );
+        };
 
-      // reset refs
-      fileMetaRef.current = null;
-      chunksRef.current = [];
-    };
+        dc.onclose = () => {
+          console.log("❌ WebRTC DataChannel Closed");
+          setWebrtcReady(false);
+        };
+      };
 
-    socket.on("file-meta", handleFileMeta);
-    socket.on("file-chunk", handleFileChunk);
-    socket.on("file-complete", handleFileComplete);
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit("webrtc-answer", { sessionId: joinCode, answer });
+    });
+
+    socket.on("webrtc-ice-candidate", async (candidate) => {
+      if (pcRef.current && candidate) {
+        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    });
 
     return () => {
-      socket.off("file-meta", handleFileMeta);
-      socket.off("file-chunk", handleFileChunk);
-      socket.off("file-complete", handleFileComplete);
+      socket.off("webrtc-offer");
+      socket.off("webrtc-ice-candidate");
     };
-  }, []);
+  }, [joinCode, cryptoKey]);
 
-  // 🔹 Join session (manual or QR)
-  const handleJoinSession = async (codeFromQR) => {
-    const code = (codeFromQR || joinCode).trim().toUpperCase();
+  const handleJoinSession = async (codeParam, keyParam) => {
+    const code = (codeParam || joinCode).trim().toUpperCase();
     if (!code || isJoined || isJoining) return;
 
     try {
       setIsJoining(true);
 
-      const res = await axios.post(import.meta.env.VITE_BACKEND_URL+"/api/session/validate", // ⬅️ use your backend IP/port here 
-      { sessionId: code }
-      );
+      // Handle Encryption Key
+      let k = null;
+      if (keyParam) {
+        try {
+          k = await importEncryptionKey(keyParam);
+          setCryptoKey(k);
+          toast.info("End-to-End Encryption Enabled");
+        } catch(e) {
+          console.error("Invalid key:", e);
+          toast.error("Invalid encryption key in URL.");
+        }
+      }
+
+      const res = await axios.post(import.meta.env.VITE_BACKEND_URL+"/api/session/validate", { sessionId: code });
 
       if (!res.data.valid) {
         toast.error(res.data.message || "Invalid or expired session code.");
         return;
       }
 
-      if (!socket.connected) {
-        socket.connect();
-      }
-
+      if (!socket.connected) socket.connect();
       socket.emit("register-receiver", { sessionId: code });
 
       setJoinCode(code);
       setIsJoined(true);
     } catch (err) {
-      console.error("Error joining session:", err);
+      console.error(err);
       toast.error("Unable to join session.");
     } finally {
       setIsJoining(false);
     }
   };
 
-  const startCamera = async () => {
-    setCameraError("");
-    setCameraOn(true);
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-
-      streamRef.current = stream;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-
-      const codeReader = new BrowserMultiFormatReader();
-      codeReaderRef.current = codeReader;
-
-      codeReader.decodeFromVideoDevice(null, videoRef.current, (result) => {
-        if (!!result) {
-          const code = result.getText().toUpperCase();
-          stopCamera();
-          handleJoinSession(code); // join from QR
-        }
-      });
-    } catch (err) {
-      console.error(err);
-      setCameraError("Camera access denied or unavailable.");
-      setCameraOn(false);
-    }
-  };
-
-  const stopCamera = () => {
-    try {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject;
-        stream.getTracks().forEach((track) => track.stop());
-        videoRef.current.srcObject = null;
-      }
-
-      codeReaderRef.current = null;
-
-      const oldVideo = videoRef.current;
-      if (oldVideo && oldVideo.parentNode) {
-        const newVideo = oldVideo.cloneNode(true);
-        oldVideo.parentNode.replaceChild(newVideo, oldVideo);
-        videoRef.current = newVideo;
-      }
-    } catch (err) {
-      console.error("Camera cleanup error:", err);
-    }
-
-    setCameraOn(false);
-  };
-
-  useEffect(() => {
-    return () => stopCamera();
-    // eslint-disable-next-line
-  }, []);
-
-
-  // Auto-join when ?code=XXXX is present in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const codeParam = params.get("code");
+    
+    // Check hash for E2EE key
+    let keyHash = window.location.hash.replace("#key=", "");
+    if (!keyHash && window.location.hash.startsWith("#key=")) {
+       keyHash = window.location.hash.split("=")[1];
+    }
 
     if (codeParam) {
       const upper = codeParam.toUpperCase();
       setJoinCode(upper);
-      handleJoinSession(upper); // 🔥 auto join
+      handleJoinSession(upper, keyHash);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   return (
     <>
@@ -211,17 +245,15 @@ const Receiver = () => {
           <div>
             <h2 className="text-2xl font-semibold mb-1">Join Session</h2>
             <p className="text-sm text-gray-500">
-              Enter a join code or scan a QR to connect with the sender.
+              Enter a join code or scan a QR to connect with the sender securely.
             </p>
           </div>
 
-          {/* Join Code Input */}
           <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col gap-3">
             <label htmlFor="joinCode" className="text-xs uppercase tracking-wide text-gray-500">
               Join Code
             </label>
 
-            {/* Responsive Layout */}
             <div className="flex flex-col md:flex-row gap-3 w-full">
               <input
                 id="joinCode"
@@ -252,10 +284,11 @@ const Receiver = () => {
               </button>
             </div>
 
-            {/* Status */}
             {isJoined ? (
-              <p className="text-xs text-green-600 mt-1">
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                 Connected to session <span className="font-mono font-semibold">{joinCode}</span>.
+                {webrtcReady && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-2"></span>}
+                {webrtcReady && <span>P2P Ready</span>}
               </p>
             ) : (
               <p className="text-xs text-gray-400 mt-1">
@@ -264,7 +297,6 @@ const Receiver = () => {
             )}
           </div>
 
-          {/* QR Scanner */}
           <div className="bg-white border border-indigo-200 rounded-md p-4 flex flex-col items-center">
             <p className="text-xs uppercase tracking-wide text-gray-500">Developed By</p>
             <p className="text-md uppercase font-semibold font-sans tracking-wide text-gray-600">Mohan Badiger</p>
@@ -272,40 +304,6 @@ const Receiver = () => {
             <a href="https://mohanbadiger.vercel.app" target="_blank" className="text-xs uppercase text-gray-500 cursor-pointer hover:text-indigo-600">click here to visit website</a>
             <img className="w-3 h-3" src={link} alt="" />
             </div>
-            {/* {!cameraOn && (
-              <button
-                type="button"
-                onClick={startCamera}
-                className="px-4 py-2 rounded-sm bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
-              >
-                Open Camera
-              </button>
-            )} */}
-
-            {/* {cameraOn && (
-              <>
-                <div className="w-56 h-56 rounded-xl overflow-hidden border border-gray-300">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="px-4 py-2 rounded-sm bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-medium transition-colors"
-                >
-                  Stop Camera
-                </button>
-              </>
-            )} */}
-
-            {cameraError && (
-              <p className="text-[11px] text-red-500 text-center">{cameraError}</p>
-            )}
           </div>
         </div>
 
@@ -321,13 +319,13 @@ const Receiver = () => {
               </p>
               <p className="text-sm text-gray-500 max-w-md mx-auto mt-1">
                 {isJoined
-                  ? "Keep this page open. Files will appear here when the sender shares."
+                  ? "Keep this page open. Files will stream directly to you."
                   : "Enter a valid join code or scan the sender's QR code."}
               </p>
             </div>
           </div>
 
-          <div className="w-full mt-4 max-h-48 overflow-y-auto bg-white border border-indigo-200 rounded-xl p-4">
+          <div className="w-full mt-4 max-h-64 overflow-y-auto bg-white border border-indigo-200 rounded-xl p-4">
             <p className="text-xs text-gray-500 mb-2">Incoming Files</p>
 
             {receivedFiles.length === 0 ? (
@@ -337,27 +335,37 @@ const Receiver = () => {
               </div>
             ) : (
               <ul className="text-xs space-y-2">
-                {receivedFiles.map((file, idx) => (
+                {receivedFiles.map((file) => (
                   <li
-                    key={idx}
-                    className="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                    key={file.id}
+                    className="flex flex-col gap-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
                   >
-                    <div className="flex-1">
-                      <p className="text-gray-700 font-medium truncate">
-                        {file.fileName}
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        {(file.fileSize / (1024 * 1024)).toFixed(2)} MB
-                      </p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-gray-700 font-medium truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          {file.speed > 0 && ` • ${(file.speed / (1024 * 1024)).toFixed(1)} MB/s`}
+                          {file.eta > 0 && ` • ${Math.round(file.eta)}s left`}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-[10px] font-semibold ${file.status === "Completed"
+                            ? "text-green-600"
+                            : "text-indigo-500"
+                          }`}
+                      >
+                        {file.status}
+                      </span>
                     </div>
-                    <span
-                      className={`text-[10px] font-semibold ${file.status === "Completed"
-                          ? "text-green-600"
-                          : "text-indigo-500"
-                        }`}
-                    >
-                      {file.status}
-                    </span>
+                    
+                    {file.status !== "Pending" && (
+                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1 overflow-hidden">
+                        <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
