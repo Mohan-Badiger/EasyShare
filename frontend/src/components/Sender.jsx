@@ -572,7 +572,7 @@ const Sender = () => {
               <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-100 text-green-600 shadow-sm">
                 <i className="fas fa-shield-alt text-[9px]"></i>
               </span>
-              Trusty Website. 100% Secure & End-to-End Encrypted.
+              100% Secure & End-to-End Encrypted.
             </p>
           </div>
 
