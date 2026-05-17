@@ -70,7 +70,7 @@ const Sender = () => {
     };
 
     socket.on("receiver-connected", handleReceiverConnected);
-    
+
     // WebRTC Signaling Handlers
     socket.on("webrtc-answer", async (answer) => {
       if (pcRef.current) {
@@ -96,19 +96,19 @@ const Sender = () => {
     pcRef.current = pc;
 
     // Create Data Channel
-    const dc = pc.createDataChannel("fileTransfer", { negotiated: true, id: 0 });
+    const dc = pc.createDataChannel("fileTransfer");
     dc.binaryType = "arraybuffer";
     dcRef.current = dc;
 
     dc.onopen = () => {
-      console.log("✅ WebRTC DataChannel Opened!");
+      console.log("WebRTC DataChannel Opened!");
       dc.bufferedAmountLowThreshold = 1024 * 1024; // 1 MB
       setWebrtcReady(true);
       toast.success("P2P Connected!");
     };
 
     dc.onclose = () => {
-      console.log("❌ WebRTC DataChannel Closed");
+      console.log("WebRTC DataChannel Closed");
       setWebrtcReady(false);
     };
 
@@ -120,7 +120,7 @@ const Sender = () => {
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    socket.emit("webrtc-offer", { sessionId: joinCode, offer });
+    socket.emit("webrtc-offer", { sessionId: joinCode, offer, key: urlHash });
   };
 
   const handleGenerateCode = async () => {
@@ -152,7 +152,7 @@ const Sender = () => {
   };
 
   const handleSendClick = async () => {
-    if (!joinCode || !webrtcReady) {
+    if (!joinCode || !receiverConnected) {
       toast.error("Waiting for receiver.");
       return;
     }
@@ -181,33 +181,43 @@ const Sender = () => {
       updateFileState(fileObj.id, { status: "Sending" });
       const dc = dcRef.current;
       const file = fileObj.file;
-      const chunkSize = 256 * 1024 - 16; // 256 KB - encryption overhead
+      const chunkSize = 64 * 1024 - 28; // 64 KB total after encryption
       let offset = 0;
       let startTime = Date.now();
       let lastTime = startTime;
       let lastOffset = 0;
 
-      // Send Metadata via DataChannel as JSON string
-      const meta = JSON.stringify({
-        type: "meta",
+      const useWebRTC = webrtcReady && dc && dc.readyState === "open";
+
+      // Send Metadata
+      const meta = {
         fileName: fileObj.name,
         fileSize: fileObj.size,
         fileType: fileObj.type
-      });
-      dc.send(meta);
+      };
+
+      if (useWebRTC) {
+        dc.send(JSON.stringify({ type: "meta", ...meta }));
+      } else {
+        socket.emit("file-meta", { sessionId: joinCode, ...meta });
+      }
 
       const reader = new FileReader();
-      
+
       const sendNextChunk = () => {
         if (offset >= file.size) {
-          dc.send(JSON.stringify({ type: "complete" }));
+          if (useWebRTC) {
+            dc.send(JSON.stringify({ type: "complete" }));
+          } else {
+            socket.emit("file-complete", { sessionId: joinCode });
+          }
           updateFileState(fileObj.id, { progress: 100, status: "Completed", speed: 0 });
           resolve();
           return;
         }
 
-        // Wait if buffer is getting full (4 MB threshold)
-        if (dc.bufferedAmount > 4 * 1024 * 1024) {
+        // Wait if buffer is getting full (WebRTC only)
+        if (useWebRTC && dc.bufferedAmount > 4 * 1024 * 1024) {
           dc.onbufferedamountlow = () => {
             dc.onbufferedamountlow = null;
             sendNextChunk();
@@ -223,10 +233,9 @@ const Sender = () => {
         try {
           const buffer = e.target.result;
           const encrypted = await encryptChunk(cryptoKey, buffer);
-          dc.send(encrypted);
-          
+
           offset += buffer.byteLength;
-          
+
           const now = Date.now();
           if (now - lastTime > 500) {
             const progress = Math.round((offset / file.size) * 100);
@@ -236,32 +245,48 @@ const Sender = () => {
             lastTime = now;
             lastOffset = offset;
           }
-          sendNextChunk();
+
+          if (useWebRTC) {
+            dc.send(encrypted);
+            sendNextChunk();
+          } else {
+            socket.emit("file-chunk", { sessionId: joinCode, chunk: encrypted }, () => {
+              sendNextChunk();
+            });
+          }
         } catch (error) {
+          console.error("Error processing chunk:", error);
           reject(error);
         }
       };
 
-      reader.onerror = reject;
-      
-      // Wait for ACK of meta before streaming
-      const onMessage = (e) => {
-        if (e.data === "meta-ack") {
-          dc.removeEventListener("message", onMessage);
-          sendNextChunk();
-        }
+      reader.onerror = (error) => {
+        console.error("FileReader error:", error);
+        reject(error);
       };
-      dc.addEventListener("message", onMessage);
+
+      // Wait for ACK of meta before streaming if using WebRTC
+      if (useWebRTC) {
+        const onMessage = (e) => {
+          if (e.data === "meta-ack") {
+            dc.removeEventListener("message", onMessage);
+            sendNextChunk();
+          }
+        };
+        dc.addEventListener("message", onMessage);
+      } else {
+        sendNextChunk();
+      }
     });
   };
 
   const processFiles = async (files, items) => {
     const newFiles = [];
-    
+
     // Handle JSZip for folders
     const zip = new JSZip();
     let hasFolders = false;
-    
+
     const readEntry = async (entry, path = "") => {
       if (entry.isFile) {
         return new Promise(resolve => {
@@ -343,7 +368,7 @@ const Sender = () => {
     setIsDragging(drag);
   };
 
-  const isSendDisabled = !joinCode || selectedFiles.length === 0 || isSending || !webrtcReady;
+  const isSendDisabled = !joinCode || selectedFiles.length === 0 || isSending || (!webrtcReady && !receiverConnected);
 
   return (
     <>
@@ -369,10 +394,10 @@ const Sender = () => {
                 <p className="text-2xl font-sans font-semibold">
                   {joinCode || "------"}
                 </p>
-                {receiverConnected && webrtcReady && (
+                {receiverConnected && (
                   <p className="text-[11px] text-green-600 mt-1 font-semibold flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    Peer connected directly
+                    Receiver connected
                   </p>
                 )}
               </div>
@@ -468,10 +493,10 @@ const Sender = () => {
                     >
                       <div className="flex justify-between items-center gap-2">
                         <div className="flex items-center gap-2 overflow-hidden">
-                           {fObj.thumbnail ? 
-                              <img src={fObj.thumbnail} alt="thumb" className="w-8 h-8 object-cover rounded-sm border border-gray-300" />
-                              : <div className="w-8 h-8 bg-gray-200 rounded-sm border border-gray-300 flex items-center justify-center text-gray-500"><i className="fas fa-file"></i></div>
-                           }
+                          {fObj.thumbnail ?
+                            <img src={fObj.thumbnail} alt="thumb" className="w-8 h-8 object-cover rounded-sm border border-gray-300" />
+                            : <div className="w-8 h-8 bg-gray-200 rounded-sm border border-gray-300 flex items-center justify-center text-gray-500"><i className="fas fa-file"></i></div>
+                          }
                           <div className="flex flex-col overflow-hidden">
                             <p className="truncate text-gray-700 font-medium">
                               {fObj.name}
@@ -497,7 +522,7 @@ const Sender = () => {
                           <span className="text-green-500 text-xs font-semibold px-2 py-1"><i className="fas fa-check"></i></span>
                         )}
                       </div>
-                      
+
                       {/* Progress Bar */}
                       {fObj.status !== "Pending" && (
                         <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1 overflow-hidden">

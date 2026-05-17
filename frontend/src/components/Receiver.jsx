@@ -58,14 +58,21 @@ const Receiver = () => {
   };
 
   useEffect(() => {
-    socket.on("webrtc-offer", async (offer) => {
+    socket.on("webrtc-offer", async (data) => {
       console.log("📥 Received WebRTC Offer");
+      const offer = data.offer;
+      if (data.key && !cryptoKey) {
+        try {
+          const k = await importEncryptionKey(data.key);
+          setCryptoKey(k);
+        } catch(e) {}
+      }
       const pc = new RTCPeerConnection(ICE_SERVERS);
       pcRef.current = pc;
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          socket.emit("webrtc-ice-candidate", { sessionId: joinCode, candidate: event.candidate });
+          socket.emit("webrtc-ice-candidate", { sessionId: data.sessionId, candidate: event.candidate });
         }
       };
 
@@ -168,7 +175,7 @@ const Receiver = () => {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      socket.emit("webrtc-answer", { sessionId: joinCode, answer });
+      socket.emit("webrtc-answer", { sessionId: data.sessionId, answer });
     });
 
     socket.on("webrtc-ice-candidate", async (candidate) => {
@@ -177,9 +184,89 @@ const Receiver = () => {
       }
     });
 
+    // --- FALLBACK: WebSocket Transfer ---
+    const handleMeta = (data) => {
+      const fileId = Math.random().toString(36).substring(7);
+      activeFileIdRef.current = fileId;
+      fileMetaRef.current = { name: data.fileName, size: data.fileSize, type: data.fileType };
+      chunksRef.current = [];
+      totalReceivedRef.current = 0;
+      startTimeRef.current = Date.now();
+      lastTimeRef.current = Date.now();
+      lastOffsetRef.current = 0;
+      
+      setReceivedFiles(prev => [...prev, {
+        id: fileId,
+        name: data.fileName,
+        size: data.fileSize,
+        type: data.fileType,
+        progress: 0,
+        speed: 0,
+        eta: 0,
+        status: "Receiving"
+      }]);
+    };
+
+    let wsDecryptChain = Promise.resolve();
+    
+    const handleChunk = (data) => {
+      wsDecryptChain = wsDecryptChain.then(async () => {
+        try {
+          let chunk = data.chunk;
+          if (cryptoKey) {
+            chunk = await decryptChunk(cryptoKey, chunk);
+          }
+          chunksRef.current.push(chunk);
+          totalReceivedRef.current += chunk.byteLength;
+          
+          const now = Date.now();
+          if (now - lastTimeRef.current > 500) {
+            const meta = fileMetaRef.current;
+            const offset = totalReceivedRef.current;
+            const progress = Math.round((offset / meta.size) * 100);
+            const speed = (offset - lastOffsetRef.current) / ((now - lastTimeRef.current) / 1000);
+            const eta = (meta.size - offset) / speed;
+            
+            setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, progress, speed, eta } : f));
+            
+            lastTimeRef.current = now;
+            lastOffsetRef.current = offset;
+          }
+        } catch (err) {
+          console.error("WS Decryption error:", err);
+        }
+      });
+    };
+
+    const handleComplete = () => {
+      wsDecryptChain = wsDecryptChain.then(() => {
+        const meta = fileMetaRef.current;
+        const blob = new Blob(chunksRef.current, { type: meta.type || "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = meta.name || "download";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        
+        playSound('success');
+
+        setReceivedFiles(prev => prev.map(f => f.id === activeFileIdRef.current ? { ...f, status: "Completed", progress: 100, speed: 0, eta: 0 } : f));
+      });
+    };
+
+    socket.on("file-meta", handleMeta);
+    socket.on("file-chunk", handleChunk);
+    socket.on("file-complete", handleComplete);
+
     return () => {
       socket.off("webrtc-offer");
       socket.off("webrtc-ice-candidate");
+      socket.off("file-meta", handleMeta);
+      socket.off("file-chunk", handleChunk);
+      socket.off("file-complete", handleComplete);
     };
   }, [joinCode, cryptoKey]);
 

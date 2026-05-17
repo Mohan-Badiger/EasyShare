@@ -25,7 +25,7 @@ export const fileHandler = (io, socket) => {
 
   // WebRTC Signaling
   socket.on("webrtc-offer", (data) => {
-    socket.to(data.sessionId).emit("webrtc-offer", data.offer);
+    socket.to(data.sessionId).emit("webrtc-offer", data);
   });
 
   socket.on("webrtc-answer", (data) => {
@@ -43,9 +43,10 @@ export const fileHandler = (io, socket) => {
   });
 
   // Stream chunk data (fallback/legacy)
-  socket.on("file-chunk", (data) => {
+  socket.on("file-chunk", (data, callback) => {
     const { sessionId } = data;
     socket.to(sessionId).emit("file-chunk", data);
+    if (typeof callback === "function") callback();
   });
 
   // File transfer complete (fallback/legacy)
